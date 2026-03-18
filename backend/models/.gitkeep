@@ -1,0 +1,2 @@
+# This directory stores the trained face embeddings model file (face_embeddings.pkl).
+# The file is generated automatically when faces are trained via the /train-face endpoint.
