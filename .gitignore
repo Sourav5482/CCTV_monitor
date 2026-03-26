@@ -1,0 +1,25 @@
+# Python backend artifacts
+backend/__pycache__/
+backend/**/*.pyc
+backend/.venv/
+backend/venv/
+
+# Runtime captures and model cache
+backend/alerts_images/*.jpg
+backend/alerts_images/*.jpeg
+backend/alerts_images/*.png
+backend/models/face_embeddings.pkl
+
+# Environment files
+.env
+.env.*
+
+# Frontend dependencies/build
+frontend/node_modules/
+frontend/dist/
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

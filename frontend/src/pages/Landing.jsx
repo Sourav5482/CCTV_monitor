@@ -1,11 +1,15 @@
 import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   UserPlus,
   Cctv,
   ScanFace,
   ClipboardList,
   ShieldAlert,
+  ShieldCheck,
+  Activity,
+  Database,
+  Cpu,
   ArrowRight,
   Sparkles,
 } from "lucide-react";
@@ -85,6 +89,35 @@ const featureData = [
   },
 ];
 
+const projectStats = [
+  { label: "Core Modules", value: "6" },
+  { label: "AI Flows", value: "3" },
+  { label: "Security Layers", value: "24/7" },
+];
+
+const systemFlow = [
+  {
+    title: "Capture",
+    text: "Live streams enter from RTSP, IP cameras, webcam, and mobile camera sources.",
+    icon: Cctv,
+  },
+  {
+    title: "Analyze",
+    text: "Face recognition and incident logic process frames in real time.",
+    icon: Cpu,
+  },
+  {
+    title: "Store",
+    text: "Attendance records, incidents, and alerts are persisted for audit and reporting.",
+    icon: Database,
+  },
+  {
+    title: "Respond",
+    text: "Operators review alerts, confirm incidents, and take immediate action.",
+    icon: Activity,
+  },
+];
+
 export default function Landing() {
   const navigate = useNavigate();
   const [selectedId, setSelectedId] = useState(featureData[0].id);
@@ -95,25 +128,87 @@ export default function Landing() {
   );
 
   return (
-    <div className="space-y-6">
-      <section className="relative overflow-hidden rounded-2xl border border-slate-700 bg-slate-900/80 p-6">
-        <div className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-cyan-500/20 blur-3xl" />
-        <div className="pointer-events-none absolute -left-24 -bottom-24 h-64 w-64 rounded-full bg-blue-500/10 blur-3xl" />
+    <div className="space-y-8">
+      <section className="relative overflow-hidden rounded-2xl border border-slate-700 bg-slate-900/80 p-7 sm:p-10">
+        <div className="pointer-events-none absolute -left-28 top-0 h-64 w-64 rounded-full bg-blue-500/15 blur-3xl" />
+        <div className="pointer-events-none absolute right-0 top-1/2 h-72 w-72 -translate-y-1/2 rounded-full bg-cyan-500/20 blur-3xl" />
 
-        <div className="relative">
-          <p className="inline-flex items-center gap-2 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-3 py-1 text-xs font-semibold text-cyan-300">
-            <Sparkles className="h-3.5 w-3.5" />
-            Smart CCTV Platform
-          </p>
-          <h1 className="mt-4 text-3xl font-bold text-white">Welcome to CCTV Monitor</h1>
-          <p className="mt-2 max-w-3xl text-sm text-slate-300">
-            Explore each module below. Click any feature card to view what it does,
-            why it matters, and jump directly into that section.
-          </p>
+        <div className="relative grid gap-8 lg:grid-cols-[1.4fr_1fr] lg:items-center">
+          <div>
+            <p className="inline-flex items-center gap-2 rounded-full border border-cyan-400/30 bg-cyan-500/10 px-3 py-1 text-xs font-semibold text-cyan-300">
+              <Sparkles className="h-3.5 w-3.5" />
+              Enterprise AI Surveillance Suite
+            </p>
+
+            <h1 className="mt-4 max-w-3xl text-3xl font-black leading-tight text-white sm:text-4xl xl:text-5xl">
+              CCTVMonitor: Real-Time Security, Attendance, and Incident Intelligence
+            </h1>
+
+            <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-300 sm:text-base">
+              A complete operations platform that combines camera management, face-based
+              attendance, incident detection, and alert workflows in one unified frontend.
+            </p>
+
+            <div className="mt-6 flex flex-wrap items-center gap-3">
+              <Link
+                to="/register-face"
+                className="inline-flex items-center gap-2 rounded-lg bg-cyan-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-cyan-700"
+              >
+                Go to Main Frontend
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+              <a
+                href="#project-modules"
+                className="inline-flex items-center rounded-lg border border-slate-600 px-5 py-2.5 text-sm font-semibold text-slate-200 transition hover:border-slate-400 hover:text-white"
+              >
+                Explore Modules
+              </a>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-slate-700/80 bg-slate-900/70 p-5">
+            <p className="flex items-center gap-2 text-sm font-semibold text-emerald-300">
+              <ShieldCheck className="h-4 w-4" />
+              Project Overview
+            </p>
+            <div className="mt-4 grid gap-3">
+              {projectStats.map((stat) => (
+                <div
+                  key={stat.label}
+                  className="flex items-center justify-between rounded-lg border border-slate-700 bg-slate-800/70 px-3 py-2"
+                >
+                  <span className="text-sm text-slate-300">{stat.label}</span>
+                  <span className="text-base font-bold text-white">{stat.value}</span>
+                </div>
+              ))}
+            </div>
+            <p className="mt-4 text-xs leading-5 text-slate-400">
+              Designed for security teams that need fast monitoring, accurate recognition,
+              and reliable evidence trails.
+            </p>
+          </div>
         </div>
       </section>
 
-      <section className="grid gap-5 xl:grid-cols-[1.3fr_1fr]">
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {systemFlow.map((step) => {
+          const FlowIcon = step.icon;
+          return (
+            <article
+              key={step.title}
+              className="rounded-xl border border-slate-700 bg-slate-900/60 p-4 transition hover:border-cyan-500/50"
+            >
+              <div className="inline-flex rounded-lg bg-slate-800 p-2 text-cyan-300">
+                <FlowIcon className="h-4 w-4" />
+              </div>
+              <h2 className="mt-3 text-sm font-semibold text-white">{step.title}</h2>
+              <p className="mt-2 text-xs leading-5 text-slate-400">{step.text}</p>
+            </article>
+          );
+        })}
+      </section>
+
+      <section id="project-modules" className="grid gap-5 xl:grid-cols-[1.3fr_1fr]">
         <div className="grid gap-4 sm:grid-cols-2">
           {featureData.map((feature) => {
             const Icon = feature.icon;
@@ -130,7 +225,7 @@ export default function Landing() {
                 }`}
               >
                 <div
-                  className={`mb-4 inline-flex rounded-lg bg-gradient-to-br p-2 ${feature.color}`}
+                  className={`mb-4 inline-flex rounded-lg bg-linear-to-br p-2 ${feature.color}`}
                 >
                   <Icon className="h-5 w-5 text-slate-100" />
                 </div>
@@ -143,7 +238,7 @@ export default function Landing() {
         </div>
 
         <aside className="rounded-xl border border-slate-700 bg-slate-900/80 p-5">
-          <h2 className="text-lg font-semibold text-white">Feature Details</h2>
+          <h2 className="text-lg font-semibold text-white">Selected Module</h2>
           <p className="mt-4 text-sm text-cyan-300">{selected.subtitle}</p>
           <h3 className="mt-1 text-xl font-bold text-white">{selected.title}</h3>
           <p className="mt-3 text-sm leading-6 text-slate-300">{selected.details}</p>
@@ -157,6 +252,23 @@ export default function Landing() {
             <ArrowRight className="h-4 w-4" />
           </button>
         </aside>
+      </section>
+
+      <section className="rounded-2xl border border-slate-700 bg-linear-to-r from-slate-900 via-slate-900 to-cyan-950/40 p-6 sm:p-8">
+        <h2 className="text-xl font-bold text-white sm:text-2xl">
+          Ready to operate your full CCTV ecosystem from one console?
+        </h2>
+        <p className="mt-2 max-w-3xl text-sm text-slate-300">
+          Launch the main frontend to access real-time dashboards, camera streams,
+          attendance operations, and security alerts.
+        </p>
+        <Link
+          to="/register-face"
+          className="mt-5 inline-flex items-center gap-2 rounded-lg bg-cyan-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-cyan-700"
+        >
+          Open Main Frontend
+          <ArrowRight className="h-4 w-4" />
+        </Link>
       </section>
     </div>
   );

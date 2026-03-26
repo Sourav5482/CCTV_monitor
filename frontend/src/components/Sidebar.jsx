@@ -1,4 +1,4 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import {
   House,
   UserPlus,
@@ -9,8 +9,11 @@ import {
   ShieldAlert,
 } from "lucide-react";
 
-const links = [
+const landingLinks = [
   { to: "/", label: "Landing", icon: House },
+];
+
+const appLinks = [
   { to: "/register-face", label: "Register Face", icon: UserPlus },
   { to: "/cctv-live", label: "Live CCTV Preview", icon: Cctv },
   { to: "/cctv-features", label: "CCTV Features", icon: ShieldAlert },
@@ -20,6 +23,9 @@ const links = [
 ];
 
 export default function Sidebar() {
+  const { pathname } = useLocation();
+  const links = pathname === "/" ? landingLinks : appLinks;
+
   return (
     <aside className="fixed inset-y-0 left-0 z-30 flex w-64 flex-col border-r border-slate-800 bg-[#0b1120]">
       {/* Brand */}
@@ -32,23 +38,26 @@ export default function Sidebar() {
 
       {/* Nav Links */}
       <nav className="mt-6 flex flex-1 flex-col gap-1 px-3">
-        {links.map(({ to, label, icon: Icon }) => (
-          <NavLink
-            key={to}
-            to={to}
-            end={to === "/"}
-            className={({ isActive }) =>
-              `flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition-colors ${
-                isActive
-                  ? "bg-blue-600/20 text-blue-400"
-                  : "text-slate-400 hover:bg-slate-800 hover:text-white"
-              }`
-            }
-          >
-            <Icon className="h-5 w-5" />
-            {label}
-          </NavLink>
-        ))}
+        {links.map((link) => {
+          const LinkIcon = link.icon;
+          return (
+            <NavLink
+              key={link.to}
+              to={link.to}
+              end={link.to === "/"}
+              className={({ isActive }) =>
+                `flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium transition-colors ${
+                  isActive
+                    ? "bg-blue-600/20 text-blue-400"
+                    : "text-slate-400 hover:bg-slate-800 hover:text-white"
+                }`
+              }
+            >
+              <LinkIcon className="h-5 w-5" />
+              {link.label}
+            </NavLink>
+          );
+        })}
       </nav>
 
       {/* Footer */}
