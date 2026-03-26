@@ -73,8 +73,14 @@ export async function fetchCameras() {
   return response.data;
 }
 
-export async function addCamera({ camera_id, name, source, location }) {
-  const response = await API.post("/cameras", { camera_id, name, source, location });
+export async function addCamera({ camera_id, name, source, location, alarm_enabled = true }) {
+  const response = await API.post("/cameras", {
+    camera_id,
+    name,
+    source,
+    location,
+    alarm_enabled,
+  });
   return response.data;
 }
 
@@ -85,6 +91,16 @@ export async function deleteCamera(cameraId) {
 
 export async function reconnectCamera(cameraId) {
   const response = await API.post(`/cameras/${cameraId}/reconnect`);
+  return response.data;
+}
+
+export async function stopCamera(cameraId) {
+  const response = await API.post(`/cameras/${cameraId}/stop`);
+  return response.data;
+}
+
+export async function startCamera(cameraId) {
+  const response = await API.post(`/cameras/${cameraId}/start`);
   return response.data;
 }
 

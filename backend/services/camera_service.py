@@ -150,7 +150,13 @@ class CameraStream:
 
 # ── CRUD helpers (MongoDB backed) ───────────────────────────────────
 
-def add_camera(camera_id: str, name: str, source: str, location: str = "") -> dict:
+def add_camera(
+    camera_id: str,
+    name: str,
+    source: str,
+    location: str = "",
+    alarm_enabled: bool = True,
+) -> dict:
     """Register a camera in the DB and start its stream."""
     col = get_cameras_collection()
     doc = {
@@ -158,6 +164,7 @@ def add_camera(camera_id: str, name: str, source: str, location: str = "") -> di
         "name": name,
         "source": source,           # RTSP URL, HTTP URL, or device index ("0")
         "location": location,
+        "alarm_enabled": bool(alarm_enabled),
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     col.update_one({"camera_id": camera_id}, {"$set": doc}, upsert=True)
@@ -176,6 +183,7 @@ def list_cameras() -> list[dict]:
     """List all registered cameras with their live status."""
     cams = list(get_cameras_collection().find({}, {"_id": 0}))
     for cam in cams:
+        cam.setdefault("alarm_enabled", True)
         cid = cam["camera_id"]
         stream = _streams.get(cid)
         cam["status"] = stream.status if stream else "offline"
@@ -185,6 +193,7 @@ def list_cameras() -> list[dict]:
 def get_camera(camera_id: str) -> dict | None:
     cam = get_cameras_collection().find_one({"camera_id": camera_id}, {"_id": 0})
     if cam:
+        cam.setdefault("alarm_enabled", True)
         stream = _streams.get(camera_id)
         cam["status"] = stream.status if stream else "offline"
     return cam
@@ -244,6 +253,23 @@ def reconnect_camera(camera_id: str) -> bool:
     # Stop old thread and create a fresh stream
     stream.stop()
     return _start_stream(camera_id, str(stream.source), stream.name)
+
+
+def stop_camera(camera_id: str) -> bool:
+    """Stop a specific camera stream without removing it from the DB."""
+    cam = get_cameras_collection().find_one({"camera_id": camera_id}, {"_id": 0})
+    if not cam:
+        return False
+    _stop_stream(camera_id)
+    return True
+
+
+def start_camera(camera_id: str) -> bool:
+    """Start (or restart) a specific camera stream from DB config."""
+    cam = get_cameras_collection().find_one({"camera_id": camera_id}, {"_id": 0})
+    if not cam:
+        return False
+    return _start_stream(camera_id, cam["source"], cam.get("name", ""))
 
 
 def start_all_cameras():

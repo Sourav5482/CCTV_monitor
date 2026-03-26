@@ -3,6 +3,7 @@ import IncidentMonitorPanel from "../components/IncidentMonitorPanel";
 import { ShieldCheck, ShieldOff, CheckCircle2, AlertTriangle, Info } from "lucide-react";
 import {
   fetchCameras,
+  fetchAttendance,
   getCameraStreamUrl,
   reconnectCamera,
   getAutoDetectStatus,
@@ -11,9 +12,30 @@ import {
   stopAutoDetect,
 } from "../services/api";
 
+let sharedAudioContext = null;
+
+function getSharedAudioContext() {
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return null;
+    if (!sharedAudioContext) {
+      sharedAudioContext = new Ctx();
+    }
+    if (sharedAudioContext.state === "suspended") {
+      sharedAudioContext.resume().catch(() => {
+        // ignore
+      });
+    }
+    return sharedAudioContext;
+  } catch {
+    return null;
+  }
+}
+
 function playWelcomeSound() {
   try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const ctx = getSharedAudioContext();
+    if (!ctx) return;
     [523.25, 659.25, 783.99, 1046.5].forEach((freq, i) => {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
@@ -33,7 +55,8 @@ function playWelcomeSound() {
 
 function playAlertSiren() {
   try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const ctx = getSharedAudioContext();
+    if (!ctx) return;
     [0, 0.3, 0.6].forEach((delay) => {
       [880, 660].forEach((freq, j) => {
         const osc = ctx.createOscillator();
@@ -58,18 +81,76 @@ const eventIcon = {
   "Unknown Person": <AlertTriangle className="h-4 w-4 text-red-400" />,
 };
 
+const AUTO_MARKED_STORAGE_KEY = "cctv_auto_marked_entries";
+
+function todayDateString() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function buildEventKey(evt) {
+  if (!evt) return "";
+  return [
+    evt.alert_id || "",
+    evt.employee_id || "",
+    evt.camera_id || "",
+    evt.status || "",
+    evt.name || "",
+    evt.confidence ?? "",
+  ].join("|");
+}
+
 export default function CCTVFeatures() {
   const [autoDetect, setAutoDetect] = useState(false);
   const [events, setEvents] = useState([]);
+  const [autoMarkedEntries, setAutoMarkedEntries] = useState([]);
+  const [cameraAlarmMap, setCameraAlarmMap] = useState({});
   const [cameraId, setCameraId] = useState("0");
   const [streamError, setStreamError] = useState("");
   const [isReconnecting, setIsReconnecting] = useState(false);
   const [streamRefreshKey, setStreamRefreshKey] = useState(0);
   const [alarmEnabled, setAlarmEnabled] = useState(true);
   const [alarmActive, setAlarmActive] = useState(false);
-  const prevEventsLen = useRef(0);
-  const unknownStreakRef = useRef(0);
+  const lastProcessedEventRef = useRef("");
   const alarmLoopRef = useRef(null);
+
+  const saveAutoMarkedToStorage = useCallback((entries) => {
+    try {
+      localStorage.setItem(AUTO_MARKED_STORAGE_KEY, JSON.stringify(entries));
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const loadAutoMarkedFromStorage = useCallback(() => {
+    try {
+      const raw = localStorage.getItem(AUTO_MARKED_STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        setAutoMarkedEntries(parsed);
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const loadStoredAttendance = useCallback(async () => {
+    try {
+      const data = await fetchAttendance(todayDateString());
+      const records = (data?.records || []).map((record) => ({
+        employee_id: record.employee_id || "-",
+        name: record.name || "Unknown",
+        camera_id: record.camera_id || "-",
+        date: record.date || todayDateString(),
+        entry_time: record.entry_time || "--:--",
+        status: record.status || "Present",
+      }));
+      setAutoMarkedEntries(records);
+      saveAutoMarkedToStorage(records);
+    } catch {
+      // ignore
+    }
+  }, [saveAutoMarkedToStorage]);
 
   const stopAlarmLoop = useCallback(() => {
     if (alarmLoopRef.current) {
@@ -105,10 +186,27 @@ export default function CCTVFeatures() {
   }, [loadStatus]);
 
   useEffect(() => {
+    loadAutoMarkedFromStorage();
+    loadStoredAttendance();
+  }, [loadAutoMarkedFromStorage, loadStoredAttendance]);
+
+  useEffect(() => {
+    if (!autoDetect) return;
+    const interval = setInterval(loadStoredAttendance, 6000);
+    return () => clearInterval(interval);
+  }, [autoDetect, loadStoredAttendance]);
+
+  useEffect(() => {
     const resolveCameraZero = async () => {
       try {
         const data = await fetchCameras();
         const cams = data?.cameras || [];
+
+        setCameraAlarmMap(
+          Object.fromEntries(
+            cams.map((cam) => [String(cam?.camera_id), cam?.alarm_enabled !== false])
+          )
+        );
 
         const sourceZero = cams.find((cam) => String(cam?.source) === "0");
         const idZero = cams.find((cam) => String(cam?.camera_id) === "0");
@@ -131,19 +229,22 @@ export default function CCTVFeatures() {
       try {
         const data = await getAutoDetectEvents(30);
         const evts = data.events || [];
-        if (evts.length > prevEventsLen.current) {
-          const newest = evts[0];
+        const newest = evts[0];
+        const newestKey = buildEventKey(newest);
+        if (newestKey && newestKey !== lastProcessedEventRef.current) {
+          lastProcessedEventRef.current = newestKey;
           if (newest?.status === "Unknown Person") {
-            unknownStreakRef.current += 1;
-            if (unknownStreakRef.current >= 2) {
+            const shouldAlarm = cameraAlarmMap[String(newest?.camera_id)] !== false;
+            if (shouldAlarm) {
               startAlarmLoop();
             }
           } else {
-            unknownStreakRef.current = 0;
-            if (newest?.status === "Attendance Marked") playWelcomeSound();
+            if (newest?.status === "Attendance Marked") {
+              playWelcomeSound();
+              loadStoredAttendance();
+            }
           }
         }
-        prevEventsLen.current = evts.length;
         setEvents(evts);
       } catch {
         // ignore
@@ -152,7 +253,7 @@ export default function CCTVFeatures() {
     poll();
     const interval = setInterval(poll, 3000);
     return () => clearInterval(interval);
-  }, [autoDetect, startAlarmLoop]);
+  }, [autoDetect, cameraAlarmMap, loadStoredAttendance, startAlarmLoop]);
 
   useEffect(() => {
     if (!alarmEnabled) {
@@ -161,16 +262,26 @@ export default function CCTVFeatures() {
   }, [alarmEnabled, stopAlarmLoop]);
 
   useEffect(() => {
+    if (!autoDetect) {
+      stopAlarmLoop();
+      lastProcessedEventRef.current = "";
+    }
+  }, [autoDetect, stopAlarmLoop]);
+
+  useEffect(() => {
     return () => {
       stopAlarmLoop();
     };
   }, [stopAlarmLoop]);
 
   const toggleAutoDetect = async () => {
+    // Prime/resume audio context from user interaction to satisfy browser autoplay rules.
+    getSharedAudioContext();
     try {
       if (autoDetect) {
         await stopAutoDetect();
         setAutoDetect(false);
+        stopAlarmLoop();
       } else {
         await startAutoDetect();
         setAutoDetect(true);
@@ -197,6 +308,8 @@ export default function CCTVFeatures() {
   const streamSrc = `${getCameraStreamUrl(cameraId)}?k=${streamRefreshKey}`;
 
   const toggleAlarmEnabled = () => {
+    // Prime/resume audio context from user interaction to satisfy browser autoplay rules.
+    getSharedAudioContext();
     setAlarmEnabled((prev) => !prev);
   };
 
@@ -332,6 +445,51 @@ export default function CCTVFeatures() {
           </div>
         </div>
       )}
+
+      <div className="rounded-xl border border-slate-700 bg-[#1e293b] p-4">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <h2 className="text-sm font-semibold text-white">Auto Marked Entry Details</h2>
+          <button
+            onClick={loadStoredAttendance}
+            className="rounded-md border border-slate-600 px-2.5 py-1 text-xs text-slate-300 hover:border-slate-500 hover:text-white"
+          >
+            Refresh Entries
+          </button>
+        </div>
+
+        {autoMarkedEntries.length === 0 ? (
+          <p className="text-xs text-slate-400">No auto-marked entries yet for today.</p>
+        ) : (
+          <div className="max-h-64 overflow-y-auto rounded-lg border border-slate-700">
+            <table className="w-full text-left text-xs">
+              <thead className="sticky top-0 bg-slate-900/95 text-slate-300">
+                <tr>
+                  <th className="px-3 py-2 font-medium">Name</th>
+                  <th className="px-3 py-2 font-medium">Employee ID</th>
+                  <th className="px-3 py-2 font-medium">Camera</th>
+                  <th className="px-3 py-2 font-medium">Date</th>
+                  <th className="px-3 py-2 font-medium">Entry Time</th>
+                  <th className="px-3 py-2 font-medium">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {autoMarkedEntries.map((entry, idx) => (
+                  <tr key={`${entry.employee_id}-${entry.date}-${entry.entry_time}-${idx}`} className="border-t border-slate-700/80 text-slate-200">
+                    <td className="px-3 py-2">{entry.name}</td>
+                    <td className="px-3 py-2 font-mono">{entry.employee_id}</td>
+                    <td className="px-3 py-2 font-mono text-slate-300">{entry.camera_id}</td>
+                    <td className="px-3 py-2 text-slate-300">{entry.date}</td>
+                    <td className="px-3 py-2 text-slate-300">{entry.entry_time}</td>
+                    <td className="px-3 py-2">
+                      <span className="rounded bg-emerald-900/50 px-2 py-0.5 text-emerald-300">{entry.status}</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

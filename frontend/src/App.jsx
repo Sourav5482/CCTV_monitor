@@ -6,7 +6,6 @@ import RegisterFace from "./pages/RegisterFace";
 import LiveCCTVPreview from "./pages/LiveCCTVPreview";
 import CCTVFeatures from "./pages/CCTVFeatures";
 import Attendance from "./pages/Attendance";
-import CameraAttendance from "./pages/CameraAttendance";
 import Alerts from "./pages/Alerts";
 
 function AppLayout() {
@@ -25,7 +24,6 @@ function AppLayout() {
             <Route path="/cctv-live" element={<LiveCCTVPreview />} />
             <Route path="/cctv-features" element={<CCTVFeatures />} />
             <Route path="/cctv-summary" element={<LiveCCTVPreview />} />
-            <Route path="/camera-attendance" element={<CameraAttendance />} />
             <Route path="/attendance" element={<Attendance />} />
             <Route path="/alerts" element={<Alerts />} />
           </Routes>

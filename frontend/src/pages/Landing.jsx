@@ -3,7 +3,6 @@ import { Link, useNavigate } from "react-router-dom";
 import {
   UserPlus,
   Cctv,
-  ScanFace,
   ClipboardList,
   ShieldAlert,
   ShieldCheck,
@@ -56,18 +55,6 @@ const featureData = [
     tag: "AI",
   },
   {
-    id: "live-attendance",
-    title: "Camera Attendance",
-    subtitle: "Real-time face check-in",
-    description: "Run live recognition and mark attendance automatically with instant feedback.",
-    details: "This page continuously scans a camera stream, recognizes known faces, and marks attendance while handling repeated detections safely.",
-    route: "/camera-attendance",
-    accent: "#a855f7",
-    accentDim: "rgba(168,85,247,0.15)",
-    icon: ScanFace,
-    tag: "Real-time",
-  },
-  {
     id: "records",
     title: "Attendance Records",
     subtitle: "Review and export logs",
@@ -101,7 +88,7 @@ const systemFlow = [
 ];
 
 const stats = [
-  { label: "Modules", value: "6", icon: Zap },
+  { label: "Modules", value: "5", icon: Zap },
   { label: "AI Flows", value: "3", icon: Sparkles },
   { label: "Uptime", value: "99.9%", icon: ShieldCheck },
   { label: "Monitoring", value: "24/7", icon: Eye },

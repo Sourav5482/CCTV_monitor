@@ -59,7 +59,7 @@ export default function CCTVSummary() {
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [showMobile, setShowMobile] = useState(false);
-  const [form, setForm] = useState({ camera_id: "", name: "", source: "", location: "" });
+  const [form, setForm] = useState({ camera_id: "", name: "", source: "", location: "", alarm_enabled: true });
   const [formError, setFormError] = useState("");
   const [autoDetect, setAutoDetect] = useState(false);
   const [events, setEvents] = useState([]);
@@ -121,7 +121,7 @@ export default function CCTVSummary() {
     }
     try {
       await addCamera(form);
-      setForm({ camera_id: "", name: "", source: "", location: "" });
+      setForm({ camera_id: "", name: "", source: "", location: "", alarm_enabled: true });
       setShowForm(false);
       load();
     } catch (err) {
@@ -264,6 +264,17 @@ export default function CCTVSummary() {
                 placeholder="Main Gate – North"
                 className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white placeholder-slate-600 focus:border-blue-500 focus:outline-none"
               />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs text-slate-400">Trigger Alarm</label>
+              <select
+                value={form.alarm_enabled ? "yes" : "no"}
+                onChange={(e) => setForm({ ...form, alarm_enabled: e.target.value === "yes" })}
+                className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
+              >
+                <option value="yes">Yes (Trigger alarm)</option>
+                <option value="no">No (Silent camera)</option>
+              </select>
             </div>
           </div>
           {formError && <p className="text-xs text-red-400">{formError}</p>}

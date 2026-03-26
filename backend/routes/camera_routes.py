@@ -15,6 +15,8 @@ from services.camera_service import (
     list_cameras,
     reconnect_camera,
     remove_camera,
+    start_camera,
+    stop_camera,
 )
 from services.face_recognition import _extract_embedding, _load_embeddings
 from services.attendance_service import is_already_marked, mark_attendance
@@ -39,6 +41,7 @@ class CameraIn(BaseModel):
     name: str
     source: str          # RTSP URL, HTTP URL, or webcam index like "0"
     location: str = ""
+    alarm_enabled: bool = True
 
 
 # ── CRUD endpoints ─────────────────────────────────────────────────
@@ -122,6 +125,7 @@ async def create_camera(body: CameraIn):
         name=body.name,
         source=body.source,
         location=body.location,
+        alarm_enabled=body.alarm_enabled,
     )
     stream = get_stream(body.camera_id)
     doc["status"] = stream.status if stream else "offline"
@@ -162,6 +166,29 @@ async def reconnect(camera_id: str):
     if not cam:
         raise HTTPException(404, "Camera not found")
     return {"status": cam.get("status", "offline"), **cam}
+
+
+@router.post("/{camera_id}/stop")
+async def stop(camera_id: str):
+    """Turn off a camera stream without deleting the camera."""
+    ok = stop_camera(camera_id)
+    if not ok:
+        raise HTTPException(404, "Camera not found")
+    cam = get_camera(camera_id)
+    return {"status": "offline", **(cam or {"camera_id": camera_id})}
+
+
+@router.post("/{camera_id}/start")
+async def start(camera_id: str):
+    """Turn on a camera stream using its saved source."""
+    ok = start_camera(camera_id)
+    if not ok:
+        raise HTTPException(404, "Camera not found")
+    # Give the stream thread a moment to read the first frame
+    import asyncio
+    await asyncio.sleep(2)
+    cam = get_camera(camera_id)
+    return {"status": cam.get("status", "offline") if cam else "offline", **(cam or {"camera_id": camera_id})}
 
 
 # ── Live MJPEG stream ──────────────────────────────────────────────

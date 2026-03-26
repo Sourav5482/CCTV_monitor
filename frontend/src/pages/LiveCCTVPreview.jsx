@@ -1,14 +1,14 @@
 import { useState, useEffect, useCallback } from "react";
 import CameraCard from "../components/CameraCard";
 import { RefreshCw, Plus, X, Smartphone } from "lucide-react";
-import { fetchCameras, addCamera, deleteCamera } from "../services/api";
+import { fetchCameras, addCamera, deleteCamera, startCamera, stopCamera } from "../services/api";
 
 export default function LiveCCTVPreview() {
   const [cameras, setCameras] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [showMobile, setShowMobile] = useState(false);
-  const [form, setForm] = useState({ camera_id: "", name: "", source: "", location: "" });
+  const [form, setForm] = useState({ camera_id: "", name: "", source: "", location: "", alarm_enabled: true });
   const [formError, setFormError] = useState("");
 
   const load = useCallback(async () => {
@@ -38,7 +38,7 @@ export default function LiveCCTVPreview() {
     }
     try {
       await addCamera(form);
-      setForm({ camera_id: "", name: "", source: "", location: "" });
+      setForm({ camera_id: "", name: "", source: "", location: "", alarm_enabled: true });
       setShowForm(false);
       load();
     } catch (err) {
@@ -50,6 +50,28 @@ export default function LiveCCTVPreview() {
     try {
       await deleteCamera(cameraId);
       setCameras((prev) => prev.filter((c) => c.camera_id !== cameraId));
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleTogglePower = async (cameraId, shouldTurnOn) => {
+    try {
+      if (shouldTurnOn) {
+        await startCamera(cameraId);
+        setCameras((prev) =>
+          prev.map((cam) =>
+            cam.camera_id === cameraId ? { ...cam, status: "active" } : cam
+          )
+        );
+      } else {
+        await stopCamera(cameraId);
+        setCameras((prev) =>
+          prev.map((cam) =>
+            cam.camera_id === cameraId ? { ...cam, status: "offline" } : cam
+          )
+        );
+      }
     } catch {
       // ignore
     }
@@ -150,6 +172,17 @@ export default function LiveCCTVPreview() {
                 className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white placeholder-slate-600 focus:border-blue-500 focus:outline-none"
               />
             </div>
+            <div>
+              <label className="mb-1 block text-xs text-slate-400">Trigger Alarm</label>
+              <select
+                value={form.alarm_enabled ? "yes" : "no"}
+                onChange={(e) => setForm({ ...form, alarm_enabled: e.target.value === "yes" })}
+                className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white focus:border-blue-500 focus:outline-none"
+              >
+                <option value="yes">Yes (Trigger alarm)</option>
+                <option value="no">No (Silent camera)</option>
+              </select>
+            </div>
           </div>
           {formError && <p className="text-xs text-red-400">{formError}</p>}
           <button type="submit" className="rounded-lg bg-green-600 px-5 py-2 text-sm font-semibold text-white hover:bg-green-700">
@@ -171,7 +204,12 @@ export default function LiveCCTVPreview() {
       ) : (
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {cameras.map((cam) => (
-            <CameraCard key={cam.camera_id} {...cam} onDelete={handleDelete} />
+            <CameraCard
+              key={cam.camera_id}
+              {...cam}
+              onDelete={handleDelete}
+              onPowerToggle={handleTogglePower}
+            />
           ))}
         </div>
       )}

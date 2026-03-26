@@ -3,7 +3,6 @@ import {
   House,
   UserPlus,
   Cctv,
-  ScanFace,
   ClipboardList,
   ShieldCheck,
   ShieldAlert,
@@ -17,7 +16,6 @@ const appLinks = [
   { to: "/register-face", label: "Register Face", icon: UserPlus },
   { to: "/cctv-live", label: "Live CCTV Preview", icon: Cctv },
   { to: "/cctv-features", label: "CCTV Features", icon: ShieldAlert },
-  { to: "/camera-attendance", label: "Camera Attendance", icon: ScanFace },
   { to: "/attendance", label: "View Attendance", icon: ClipboardList },
   { to: "/alerts", label: "Security Alerts", icon: ShieldAlert },
 ];

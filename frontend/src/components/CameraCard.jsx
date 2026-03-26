@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Video, VideoOff, Trash2, RefreshCw } from "lucide-react";
+import { VideoOff, Trash2, RefreshCw } from "lucide-react";
 import { getCameraStreamUrl, reconnectCamera } from "../services/api";
 
 export default function CameraCard({
@@ -9,9 +9,12 @@ export default function CameraCard({
   status = "active",
   source,
   onDelete,
+  onPowerToggle,
 }) {
   const isActive = status === "active";
+  const isPoweredOn = status !== "offline";
   const [retrying, setRetrying] = useState(false);
+  const [powerBusy, setPowerBusy] = useState(false);
 
   const handleReconnect = async () => {
     setRetrying(true);
@@ -19,6 +22,18 @@ export default function CameraCard({
       await reconnectCamera(camera_id);
     } catch { /* */ }
     finally { setRetrying(false); }
+  };
+
+  const handlePowerToggle = async () => {
+    if (!onPowerToggle) return;
+    setPowerBusy(true);
+    try {
+      await onPowerToggle(camera_id, !isPoweredOn);
+    } catch {
+      // ignore
+    } finally {
+      setPowerBusy(false);
+    }
   };
 
   return (
@@ -84,6 +99,19 @@ export default function CameraCard({
             </button>
           )}
         </div>
+        {onPowerToggle && (
+          <button
+            onClick={handlePowerToggle}
+            disabled={powerBusy}
+            className={`mt-3 w-full rounded-md px-3 py-1.5 text-xs font-semibold transition disabled:opacity-50 ${
+              isPoweredOn
+                ? "bg-rose-600/90 text-white hover:bg-rose-600"
+                : "bg-emerald-600/90 text-white hover:bg-emerald-600"
+            }`}
+          >
+            {powerBusy ? "Updating..." : isPoweredOn ? "Turn Camera Off" : "Turn Camera On"}
+          </button>
+        )}
       </div>
     </div>
   );
