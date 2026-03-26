@@ -17,7 +17,7 @@ function AppLayout() {
     <div className="flex min-h-screen bg-[#0f172a]">
       {!isLandingPage && <Sidebar />}
       <div className={`flex flex-1 flex-col ${isLandingPage ? "" : "pl-64"}`}>
-        <Navbar />
+        {!isLandingPage && <Navbar />}
         <main className="flex-1 p-6">
           <Routes>
             <Route path="/" element={<Landing />} />

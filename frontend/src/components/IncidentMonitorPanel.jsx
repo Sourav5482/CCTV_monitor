@@ -11,6 +11,7 @@ function fmtDate(iso) {
 export default function IncidentMonitorPanel() {
   const [summary, setSummary] = useState([]);
   const [events, setEvents] = useState([]);
+  const [activeCapture, setActiveCapture] = useState(null);
 
   useEffect(() => {
     const load = async () => {
@@ -77,11 +78,17 @@ export default function IncidentMonitorPanel() {
           <div className="mt-3 space-y-2 max-h-72 overflow-y-auto pr-1">
             {events.map((evt, i) => (
               <div key={`${evt.timestamp || "t"}-${i}`} className="flex items-center gap-3 rounded-lg border border-slate-700 bg-slate-800/40 p-2">
-                <img
-                  src={`${ALERT_IMAGE_URL}/${evt.image_filename}`}
-                  alt="incident"
-                  className="h-14 w-20 rounded object-cover"
-                />
+                <button
+                  type="button"
+                  onClick={() => setActiveCapture(evt)}
+                  className="shrink-0 rounded focus:outline-none focus:ring-2 focus:ring-cyan-400"
+                >
+                  <img
+                    src={`${ALERT_IMAGE_URL}/${evt.image_filename}`}
+                    alt="incident"
+                    className="h-14 w-20 rounded object-cover"
+                  />
+                </button>
                 <div className="min-w-0 flex-1">
                   <p className="text-xs text-amber-300 font-medium">{evt.incident_type?.replaceAll("_", " ") || "suspicious"}</p>
                   <p className="text-xs text-white truncate">Camera: {evt.camera_name || evt.camera_id}</p>
@@ -98,6 +105,38 @@ export default function IncidentMonitorPanel() {
           </div>
         )}
       </div>
+
+      {activeCapture && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+          onClick={() => setActiveCapture(null)}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div
+            className="relative w-full max-w-4xl rounded-xl border border-slate-700 bg-slate-950 p-3"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setActiveCapture(null)}
+              className="absolute right-3 top-3 rounded bg-slate-800 px-2 py-1 text-xs text-slate-200 hover:bg-slate-700"
+            >
+              Close
+            </button>
+            <img
+              src={`${ALERT_IMAGE_URL}/${activeCapture.image_filename}`}
+              alt="suspicious capture"
+              className="max-h-[75vh] w-full rounded-lg object-contain"
+            />
+            <div className="mt-2 text-xs text-slate-300">
+              <p>Type: {activeCapture.incident_type?.replaceAll("_", " ") || "suspicious"}</p>
+              <p>Camera: {activeCapture.camera_name || activeCapture.camera_id}</p>
+              <p>Date: {fmtDate(activeCapture.timestamp)}</p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

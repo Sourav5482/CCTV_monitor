@@ -1,6 +1,8 @@
 # Python backend artifacts
 backend/__pycache__/
 backend/**/*.pyc
+__pycache__/
+*.py[cod]
 backend/.venv/
 backend/venv/
 
@@ -8,6 +10,7 @@ backend/venv/
 backend/alerts_images/*.jpg
 backend/alerts_images/*.jpeg
 backend/alerts_images/*.png
+!backend/alerts_images/.gitkeep
 backend/models/face_embeddings.pkl
 
 # Environment files
@@ -17,6 +20,7 @@ backend/models/face_embeddings.pkl
 # Frontend dependencies/build
 frontend/node_modules/
 frontend/dist/
+node_modules/
 
 # OS/editor
 .DS_Store

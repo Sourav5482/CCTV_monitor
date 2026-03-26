@@ -2,6 +2,9 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import IncidentMonitorPanel from "../components/IncidentMonitorPanel";
 import { ShieldCheck, ShieldOff, CheckCircle2, AlertTriangle, Info } from "lucide-react";
 import {
+  fetchCameras,
+  getCameraStreamUrl,
+  reconnectCamera,
   getAutoDetectStatus,
   getAutoDetectEvents,
   startAutoDetect,
@@ -58,7 +61,33 @@ const eventIcon = {
 export default function CCTVFeatures() {
   const [autoDetect, setAutoDetect] = useState(false);
   const [events, setEvents] = useState([]);
+  const [cameraId, setCameraId] = useState("0");
+  const [streamError, setStreamError] = useState("");
+  const [isReconnecting, setIsReconnecting] = useState(false);
+  const [streamRefreshKey, setStreamRefreshKey] = useState(0);
+  const [alarmEnabled, setAlarmEnabled] = useState(true);
+  const [alarmActive, setAlarmActive] = useState(false);
   const prevEventsLen = useRef(0);
+  const unknownStreakRef = useRef(0);
+  const alarmLoopRef = useRef(null);
+
+  const stopAlarmLoop = useCallback(() => {
+    if (alarmLoopRef.current) {
+      clearInterval(alarmLoopRef.current);
+      alarmLoopRef.current = null;
+    }
+    setAlarmActive(false);
+  }, []);
+
+  const startAlarmLoop = useCallback(() => {
+    if (alarmLoopRef.current || !alarmEnabled) return;
+
+    playAlertSiren();
+    alarmLoopRef.current = setInterval(() => {
+      playAlertSiren();
+    }, 900);
+    setAlarmActive(true);
+  }, [alarmEnabled]);
 
   const loadStatus = useCallback(async () => {
     try {
@@ -76,6 +105,27 @@ export default function CCTVFeatures() {
   }, [loadStatus]);
 
   useEffect(() => {
+    const resolveCameraZero = async () => {
+      try {
+        const data = await fetchCameras();
+        const cams = data?.cameras || [];
+
+        const sourceZero = cams.find((cam) => String(cam?.source) === "0");
+        const idZero = cams.find((cam) => String(cam?.camera_id) === "0");
+        const preferred = sourceZero || idZero;
+
+        if (preferred?.camera_id) {
+          setCameraId(String(preferred.camera_id));
+        }
+      } catch {
+        // keep fallback camera id "0"
+      }
+    };
+
+    resolveCameraZero();
+  }, []);
+
+  useEffect(() => {
     if (!autoDetect) return;
     const poll = async () => {
       try {
@@ -83,8 +133,15 @@ export default function CCTVFeatures() {
         const evts = data.events || [];
         if (evts.length > prevEventsLen.current) {
           const newest = evts[0];
-          if (newest?.status === "Unknown Person") playAlertSiren();
-          else if (newest?.status === "Attendance Marked") playWelcomeSound();
+          if (newest?.status === "Unknown Person") {
+            unknownStreakRef.current += 1;
+            if (unknownStreakRef.current >= 2) {
+              startAlarmLoop();
+            }
+          } else {
+            unknownStreakRef.current = 0;
+            if (newest?.status === "Attendance Marked") playWelcomeSound();
+          }
         }
         prevEventsLen.current = evts.length;
         setEvents(evts);
@@ -95,7 +152,19 @@ export default function CCTVFeatures() {
     poll();
     const interval = setInterval(poll, 3000);
     return () => clearInterval(interval);
-  }, [autoDetect]);
+  }, [autoDetect, startAlarmLoop]);
+
+  useEffect(() => {
+    if (!alarmEnabled) {
+      stopAlarmLoop();
+    }
+  }, [alarmEnabled, stopAlarmLoop]);
+
+  useEffect(() => {
+    return () => {
+      stopAlarmLoop();
+    };
+  }, [stopAlarmLoop]);
 
   const toggleAutoDetect = async () => {
     try {
@@ -111,6 +180,26 @@ export default function CCTVFeatures() {
     }
   };
 
+  const handleReconnect = async () => {
+    setIsReconnecting(true);
+    setStreamError("");
+
+    try {
+      await reconnectCamera(cameraId);
+      setStreamRefreshKey((k) => k + 1);
+    } catch {
+      setStreamError(`Could not reconnect camera ${cameraId}.`);
+    } finally {
+      setIsReconnecting(false);
+    }
+  };
+
+  const streamSrc = `${getCameraStreamUrl(cameraId)}?k=${streamRefreshKey}`;
+
+  const toggleAlarmEnabled = () => {
+    setAlarmEnabled((prev) => !prev);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -121,17 +210,92 @@ export default function CCTVFeatures() {
           </p>
         </div>
 
-        <button
-          onClick={toggleAutoDetect}
-          className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition ${
-            autoDetect
-              ? "bg-red-600 text-white hover:bg-red-700"
-              : "bg-green-600 text-white hover:bg-green-700"
-          }`}
-        >
-          {autoDetect ? <ShieldOff className="h-4 w-4" /> : <ShieldCheck className="h-4 w-4" />}
-          {autoDetect ? "Stop Auto-Detect" : "Start Auto-Detect"}
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={toggleAutoDetect}
+            className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition ${
+              autoDetect
+                ? "bg-red-600 text-white hover:bg-red-700"
+                : "bg-green-600 text-white hover:bg-green-700"
+            }`}
+          >
+            {autoDetect ? <ShieldOff className="h-4 w-4" /> : <ShieldCheck className="h-4 w-4" />}
+            {autoDetect ? "Stop Auto-Detect" : "Start Auto-Detect"}
+          </button>
+
+          <button
+            onClick={toggleAlarmEnabled}
+            className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
+              alarmEnabled
+                ? "bg-amber-600 text-white hover:bg-amber-700"
+                : "bg-slate-700 text-slate-200 hover:bg-slate-600"
+            }`}
+          >
+            {alarmEnabled ? "Alarm ON" : "Alarm OFF"}
+          </button>
+
+          {alarmActive && (
+            <button
+              onClick={stopAlarmLoop}
+              className="rounded-lg bg-rose-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-rose-800"
+            >
+              Stop Alarm
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-slate-700 bg-[#1e293b] p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-semibold text-white">Camera Live Preview</h2>
+            <p className="mt-1 text-xs text-slate-400">
+              Streaming registered CCTV camera using source 0 mapping.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="rounded-md border border-slate-600 bg-slate-900/60 px-2 py-1 text-xs text-slate-300">
+              Camera ID: {cameraId}
+            </span>
+            <button
+              onClick={handleReconnect}
+              disabled={isReconnecting}
+              className="rounded-md border border-cyan-500/50 px-3 py-1 text-xs font-medium text-cyan-300 transition hover:border-cyan-400 hover:text-cyan-200 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isReconnecting ? "Reconnecting..." : "Reconnect"}
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-4 max-w-2xl overflow-hidden rounded-xl ">
+          <div className="relative flex h-[220px] w-[190px] items-center justify-center sm:h-[220px]">
+            <img
+              src={streamSrc}
+              alt={`Live stream from camera ${cameraId}`}
+              className="h-full w-full object-cover rounded-2xl"
+              onLoad={() => setStreamError("")}
+              onError={() => setStreamError(`Could not start video source for camera ${cameraId}.`)}
+            />
+            <span className="absolute left-3 top-3 flex items-center gap-1.5 rounded-full bg-red-600/90 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" />
+              Live
+            </span>
+
+            {streamError && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-slate-950/80 px-4 text-center">
+                <p className="max-w-md text-xs text-red-300">{streamError}</p>
+                <button
+                  onClick={handleReconnect}
+                  disabled={isReconnecting}
+                  className="rounded-md border border-slate-600 px-3 py-1 text-xs font-medium text-slate-200 hover:border-slate-400 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {isReconnecting ? "Reconnecting..." : "Retry Stream"}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       <IncidentMonitorPanel />
