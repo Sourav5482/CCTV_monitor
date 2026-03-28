@@ -56,7 +56,7 @@ export default function Attendance() {
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">View Attendance</h1>
+          <h1 className="text-2xl font-bold text-white">View Entry Records</h1>
           <p className="text-sm text-slate-400">Employee attendance records{loading ? " — loading…" : ""}</p>
         </div>
         <div className="flex gap-3">

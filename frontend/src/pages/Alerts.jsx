@@ -50,7 +50,7 @@ export default function Alerts() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white">Security Alerts</h1>
-          <p className="text-sm text-slate-400">Unknown person detections</p>
+          <p className="text-sm text-slate-400">Unauthorised person detections</p>
         </div>
         <button
           onClick={loadAlerts}

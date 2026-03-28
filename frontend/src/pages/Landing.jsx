@@ -46,8 +46,8 @@ const featureData = [
     id: "cctv-features",
     title: "CCTV Features",
     subtitle: "Incident & AI monitoring",
-    description: "Auto-detect suspicious movement captures and incident intelligence.",
-    details: "Use this page for auto-detection control, incident summaries, and recent suspicious capture metadata.",
+    description: "Auto-detect unauthorized person and theft incidents.",
+    details: "Use this page for auto-detection control, incident summaries, and recent incident capture metadata.",
     route: "/cctv-features",
     accent: "#f59e0b",
     accentDim: "rgba(245,158,11,0.15)",
@@ -69,9 +69,9 @@ const featureData = [
   {
     id: "alerts",
     title: "Security Alerts",
-    subtitle: "Unknown person incidents",
-    description: "Review unknown detections, evidence images, and alert escalation status.",
-    details: "The system groups unknown detections, stores snapshots, and provides alert actions so security teams can investigate quickly.",
+    subtitle: "Unauthorised person incidents",
+    description: "Review unauthorised person detections, evidence images, and alert escalation status.",
+    details: "The system groups unauthorised person detections, stores snapshots, and provides alert actions so security teams can investigate quickly.",
     route: "/alerts",
     accent: "#ef4444",
     accentDim: "rgba(239,68,68,0.15)",
@@ -449,10 +449,11 @@ export default function Landing() {
                 </span>
               </div>
 
-              <h1 className="hero-title">CCTVMonitor<br />Security Intelligence</h1>
+              <h1 className="hero-title">Sudarshan-AI<br /></h1>
+              <h2 className="text-2xl text-right ">"CCTV Security Intelligence"</h2>
 
               <p style={{ marginTop: "20px", maxWidth: "540px", fontSize: "14px", lineHeight: 1.75, color: "#64748b", fontFamily: "'DM Mono', monospace" }}>
-                Real-time surveillance, face-based attendance, incident detection,
+                Real-time surveillance, face-based attendance, Authorised person recognisation and unauthorised person detection,
                 and alert workflows — unified in one operations console.
               </p>
 

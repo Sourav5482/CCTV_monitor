@@ -335,7 +335,7 @@ export default function CCTVSummary() {
                 <span className="font-mono text-xs text-slate-500">{evt.camera_id}</span>
                 <span className="flex-1">
                   {evt.status === "Unknown Person"
-                    ? "Unknown person detected!"
+                    ? "Unauthorised person detected"
                     : evt.status === "Attendance Marked"
                     ? `Welcome! ${evt.name} — attendance marked`
                     : `${evt.name} — already marked`}

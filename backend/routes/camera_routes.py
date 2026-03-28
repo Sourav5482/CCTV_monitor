@@ -28,6 +28,7 @@ from services.auto_detect_service import (
     stop_auto_detect,
 )
 from services.incident_service import get_recent_incidents, summarize_incidents
+from services.partial_face_theft_service import get_latest_annotated_frame
 from utils.image_processing import detect_face
 
 router = APIRouter(prefix="/cameras", tags=["cameras"])
@@ -193,10 +194,14 @@ async def start(camera_id: str):
 
 # ── Live MJPEG stream ──────────────────────────────────────────────
 
-def _mjpeg_generator(camera_id: str):
+def _mjpeg_generator(camera_id: str, annotated: bool = False):
     """Yield JPEG frames as a multipart MJPEG stream."""
     while True:
         frame = get_frame(camera_id)
+        if annotated:
+            ann = get_latest_annotated_frame(camera_id)
+            if ann is not None:
+                frame = ann
         if frame is None:
             frame = np.zeros((480, 640, 3), dtype=np.uint8)
             cv2.putText(frame, "No Signal", (200, 250),
@@ -211,13 +216,13 @@ def _mjpeg_generator(camera_id: str):
 
 
 @router.get("/{camera_id}/stream")
-async def stream_camera(camera_id: str):
+async def stream_camera(camera_id: str, annotated: bool = Query(False)):
     """MJPEG stream endpoint — plug into an <img> src."""
     cam = get_camera(camera_id)
     if not cam:
         raise HTTPException(404, "Camera not found")
     return StreamingResponse(
-        _mjpeg_generator(camera_id),
+        _mjpeg_generator(camera_id, annotated=annotated),
         media_type="multipart/x-mixed-replace; boundary=frame",
     )
 

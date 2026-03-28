@@ -16,7 +16,7 @@ const appLinks = [
   { to: "/register-face", label: "Register Face", icon: UserPlus },
   { to: "/cctv-live", label: "Live CCTV Preview", icon: Cctv },
   { to: "/cctv-features", label: "CCTV Features", icon: ShieldAlert },
-  { to: "/attendance", label: "View Attendance", icon: ClipboardList },
+  { to: "/attendance", label: "View Entry Records", icon: ClipboardList },
   { to: "/alerts", label: "Security Alerts", icon: ShieldAlert },
 ];
 
@@ -29,9 +29,7 @@ export default function Sidebar() {
       {/* Brand */}
       <div className="flex h-16 items-center gap-3 border-b border-slate-800 px-6">
         <ShieldCheck className="h-7 w-7 text-blue-500" />
-        <span className="text-lg font-bold tracking-wide text-white">
-          CCTV<span className="text-blue-400">Monitor</span>
-        </span>
+        <span className="text-lg font-bold tracking-wide text-white">Sudarshan<span className="text-blue-400">AI</span></span>
       </div>
 
       {/* Nav Links */}
@@ -60,7 +58,7 @@ export default function Sidebar() {
 
       {/* Footer */}
       <div className="border-t border-slate-800 px-6 py-4">
-        <p className="text-xs text-slate-600">© 2026 CCTVMonitor</p>
+        <p className="text-xs text-slate-600">© 2026 SudarshanAI</p>
       </div>
     </aside>
   );

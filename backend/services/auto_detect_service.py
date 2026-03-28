@@ -5,6 +5,7 @@ every SCAN_INTERVAL seconds, runs face detection + attendance / alert logic.
 """
 
 import logging
+import os
 import threading
 import time
 
@@ -15,14 +16,16 @@ from services.face_recognition import _extract_embedding, _load_embeddings
 from services.attendance_service import is_already_marked, mark_attendance
 from services.alert_service import create_or_update_alert, save_alert_image
 from services.incident_service import log_suspicious_incident
-from services.suspicious_motion_service import detect_suspicious_movement
+from services.partial_face_theft_service import detect_partial_face_theft
+from services.notification_service import enqueue_partial_face_alert, start_notification_worker, stop_notification_worker
 from utils.image_processing import detect_face
 
 logger = logging.getLogger("auto_detect")
 
-SCAN_INTERVAL = 3          # seconds between scans per camera
+SCAN_INTERVAL = float(os.getenv("AUTO_SCAN_INTERVAL", "1.0"))  # seconds between scans per camera
 ATTENDANCE_THRESHOLD = 0.68  # higher = stricter matching, fewer false positives
 EVENT_COOLDOWN = 60         # suppress repeated events for same person+camera (seconds)
+PROCESS_EVERY_N_FRAMES = int(os.getenv("AUTO_PROCESS_EVERY_N", "1"))  # skip-frame optimization
 
 _running = False
 _thread: threading.Thread | None = None
@@ -34,6 +37,7 @@ MAX_EVENTS = 100
 
 # Cooldown tracker: (camera_id, employee_id_or_"unknown") -> last_event_timestamp
 _last_event: dict[tuple[str, str], float] = {}
+_frame_counter: dict[str, int] = {}
 
 
 def _push_event(event: dict):
@@ -74,6 +78,7 @@ def _process_frame(camera_id: str, camera_name: str, frame: np.ndarray):
             camera_id=camera_id,
             camera_name=camera_name,
             image_filename=filename,
+            incident_type="unknown_person",
             metadata={"reason": "no_trained_faces", "alert_id": alert["_id"]},
         )
         _push_event({"camera_id": camera_id, "status": "Unknown Person", "alert_id": alert["_id"]})
@@ -100,6 +105,7 @@ def _process_frame(camera_id: str, camera_name: str, frame: np.ndarray):
             camera_id=camera_id,
             camera_name=camera_name,
             image_filename=filename,
+            incident_type="unknown_person",
             metadata={
                 "reason": "unknown_person",
                 "score": round(best_score, 4),
@@ -141,7 +147,7 @@ def _process_frame(camera_id: str, camera_name: str, frame: np.ndarray):
 
 def _scan_loop():
     """Main loop — iterate over all active cameras, process one frame each."""
-    from services.camera_service import _streams  # import here to avoid circular
+    from services.camera_service import _streams, get_camera  # import here to avoid circular
 
     while _running:
         for camera_id, stream in list(_streams.items()):
@@ -153,19 +159,49 @@ def _scan_loop():
             if frame is None:
                 continue
             try:
-                # Model-based suspicious movement detection (independent from face match)
-                suspicious_meta = detect_suspicious_movement(camera_id, frame)
-                if suspicious_meta is not None:
-                    movement_filename = save_alert_image(frame)
-                    log_suspicious_incident(
-                        camera_id=camera_id,
-                        camera_name=stream.name or camera_id,
-                        image_filename=movement_filename,
-                        metadata={
-                            "reason": "suspicious_movement_model",
-                            **suspicious_meta,
-                        },
-                    )
+                frame_count = _frame_counter.get(camera_id, 0) + 1
+                _frame_counter[camera_id] = frame_count
+                if frame_count % PROCESS_EVERY_N_FRAMES != 0:
+                    continue
+
+                cam_cfg = get_camera(camera_id) or {}
+                alarm_enabled = bool(cam_cfg.get("alarm_enabled", True))
+
+                # Rule:
+                # - Alarm OFF camera  -> run partial-face theft detection
+                # - Alarm ON camera   -> no suspicious-movement logging (disabled)
+
+                if not alarm_enabled:
+                    # Alarm OFF: theft / concealment monitoring only
+                    theft_incident = detect_partial_face_theft(camera_id, stream.name or camera_id, frame)
+                    if theft_incident is not None:
+                        log_suspicious_incident(
+                            camera_id=camera_id,
+                            camera_name=stream.name or camera_id,
+                            image_filename=theft_incident["image_filename"],
+                            incident_type="theft_partial_face",
+                            metadata={
+                                "reason": theft_incident["reason"],
+                                "confidence": theft_incident["confidence"],
+                                "person_confidence": theft_incident["person_confidence"],
+                                "partial_face_confidence": theft_incident["partial_face_confidence"],
+                                "streak": theft_incident["streak"],
+                                "required_streak": theft_incident["required_streak"],
+                                "bbox": theft_incident["bbox"],
+                                "detector": theft_incident["detector"],
+                                "person_crop_filename": theft_incident["person_crop_filename"],
+                                "alarm_enabled": False,
+                            },
+                        )
+                        _push_event({
+                            "camera_id": camera_id,
+                            "status": "Partial Face Detected",
+                            "confidence": theft_incident["confidence"],
+                            "reason": theft_incident["reason"],
+                            "image_filename": theft_incident["image_filename"],
+                        })
+                        enqueue_partial_face_alert(theft_incident)
+                        continue
 
                 _process_frame(camera_id, stream.name or camera_id, frame)
             except Exception as exc:
@@ -178,6 +214,7 @@ def start_auto_detect():
     global _running, _thread
     if _running:
         return
+    start_notification_worker()
     _running = True
     _thread = threading.Thread(target=_scan_loop, daemon=True, name="auto-detect")
     _thread.start()
@@ -190,6 +227,7 @@ def stop_auto_detect():
     if _thread:
         _thread.join(timeout=5)
         _thread = None
+    stop_notification_worker()
     logger.info("Auto-detect worker stopped")
 
 

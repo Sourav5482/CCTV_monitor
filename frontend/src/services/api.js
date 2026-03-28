@@ -109,8 +109,8 @@ export async function detectFromCamera(cameraId) {
   return response.data;
 }
 
-export function getCameraStreamUrl(cameraId) {
-  return `${STREAM_BASE}/${cameraId}/stream`;
+export function getCameraStreamUrl(cameraId, annotated = false) {
+  return `${STREAM_BASE}/${cameraId}/stream${annotated ? "?annotated=true" : ""}`;
 }
 
 export function getCameraSnapshotUrl(cameraId) {
